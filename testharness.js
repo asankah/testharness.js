@@ -1006,7 +1006,8 @@ policies and contribution forms [3].
             this._structured_clone = merge({
                 name:String(this.name),
                 status:this.status,
-                message:msg
+                message:msg,
+                properties:merge({}, this.properties)
             }, Test.statuses);
         }
         return this._structured_clone;
@@ -1150,6 +1151,28 @@ policies and contribution forms [3].
                     cleanup_callback();
                 });
     };
+
+    function RemoteTest(clone)
+    {
+        for (p in clone) {
+            this[p] = clone[p];
+        }
+    }
+
+    RemoteTest.prototype.structured_clone = function()
+    {
+        var clone = {};
+        for (p in this) {
+            if (this[p] instanceof Function) {
+                continue;
+            } else if (this[p] instanceof Object) {
+                clone[p] = merge({}, this[p]);
+            } else {
+                clone[p] = this[p];
+            }
+        }
+        return clone;
+    }
 
     /*
      * Harness
@@ -1403,6 +1426,20 @@ policies and contribution forms [3].
         }
     }
 
+    Tests.prototype.synthesize_from_test_results = function(remote_tests, remote_harness_status)
+    {
+        for (var i = 0; i < remote_tests.length; ++i) {
+            var synthesized_test = new RemoteTest(remote_tests[i]);
+            tests.push(synthesized_test);
+            tests.result(synthesized_test);
+        }
+
+        if (remote_harness_status !== null) {
+            this.status.status = remote_harness_status.status;
+            this.status.message = remote_harness_status.message;
+        }
+    }
+
     function timeout() {
         if (tests.timeout_length === null) {
             tests.timeout();
@@ -1427,6 +1464,12 @@ policies and contribution forms [3].
     expose(add_start_callback, 'add_start_callback');
     expose(add_result_callback, 'add_result_callback');
     expose(add_completion_callback, 'add_completion_callback');
+
+    function synthesize_tests(cloned_tests, status)
+    {
+        tests.synthesize_from_test_results(cloned_tests, status);
+    }
+    expose(synthesize_tests, 'synthesize_tests');
 
     /*
      * Output listener
