@@ -27,48 +27,181 @@ policies and contribution forms [3].
 
     var xhtml_ns = "http://www.w3.org/1999/xhtml";
 
-    // script_prefix is used by Output.prototype.show_results() to figure out
-    // where to get testharness.css from.  It's enclosed in an extra closure to
-    // not pollute the library's namespace with variables like "src".
-    var script_prefix = null;
-    (function ()
+    /*
+     * Test environment
+     *
+     * The test harness can be invoked with or without a DOM. When invoked
+     * without a DOM, the harness needs to degrade gracefully with disabling
+     * features that cannot be used from within a worker. Aspects that depend on
+     * a DOM are abstracted and provided by WindowTestEnvironment (for a browser
+     * window) and WorkerTestEnvironment (for a web worker).
+     */
+    function WindowTestEnvironment()
     {
-        var scripts = document.getElementsByTagName("script");
-        for (var i = 0; i < scripts.length; i++) {
-            var src;
-            if (scripts[i].src) {
-                src = scripts[i].src;
-            } else if (scripts[i].href) {
-                //SVG case
-                src = scripts[i].href.baseVal;
-            }
+        this.name_counter = 0;
+        this.window_cache = null;
+        this.output_handler = null;
+        this.all_loaded = false;
+        this_obj = this;
+        on_event(window, 'load', function() {
+            this_obj.all_loaded = true;
+        });
+    }
 
-            var matches = src && src.match(/^(.*\/|)testharness\.js$/);
-            if (matches) {
-                script_prefix = matches[1];
+    WindowTestEnvironment.prototype.next_default_test_name = function()
+    {
+        //Don't use document.title to work around an Opera bug in XHTML documents
+        var title = document.getElementsByTagName("title")[0];
+        var prefix = (title && title.firstChild && title.firstChild.data) || "Untitled";
+        var suffix = this.name_counter > 0 ? " " + this.name_counter : "";
+        this.name_counter++;
+        return prefix + suffix;
+    };
+
+    WindowTestEnvironment.prototype.create_default_output_handler = function()
+    {
+        var output = new Output();
+        add_start_callback(function (properties) {
+            output.init(properties);
+        });
+        add_result_callback(function () {
+            output.show_status();
+        });
+        add_completion_callback(function (tests, harness_status) {
+            output.show_results(tests, harness_status);
+        });
+        this.output_handler = output;
+    };
+
+    WindowTestEnvironment.prototype.reconfigure_output_handler = function(properties)
+    {
+        this.output_handler.setup(properties);
+    };
+
+    WindowTestEnvironment.prototype.add_on_loaded_callback = function(callback)
+    {
+        on_event(window, 'load', callback);
+    };
+
+    WindowTestEnvironment.prototype.get_test_timeout = function()
+    {
+        var metas = document.getElementsByTagName("meta");
+        for (var i = 0; i < metas.length; i++) {
+            if (metas[i].name == "timeout") {
+                if (metas[i].content == "long") {
+                    return settings.harness_timeout.long;
+                }
                 break;
             }
         }
-    })();
+        return settings.harness_timeout.normal;
+    };
+
+    WindowTestEnvironment.prototype.get_global_scope = function()
+    {
+        return window;
+    };
+
+    WindowTestEnvironment.prototype.forEach_windows = function(callback)
+    {
+        // Iterate of the the windows [self ... top, opener]. The callback is passed
+        // two objects, the first one is the windows object itself, the second one
+        // is a boolean indicating whether or not its on the same origin as the
+        // current window.
+        var cache = this.window_cache;
+        if (!cache) {
+            cache = [[self, true]];
+            var w = self;
+            var i = 0;
+            var so;
+            var origins = location.ancestorOrigins;
+            while (w != w.parent) {
+                w = w.parent;
+                // In WebKit, calls to parent windows' properties that aren't on the same
+                // origin cause an error message to be displayed in the error console but
+                // don't throw an exception. This is a deviation from the current HTML5
+                // spec. See: https://bugs.webkit.org/show_bug.cgi?id=43504
+                // The problem with WebKit's behavior is that it pollutes the error console
+                // with error messages that can't be caught.
+                //
+                // This issue can be mitigated by relying on the (for now) proprietary
+                // `location.ancestorOrigins` property which returns an ordered list of
+                // the origins of enclosing windows. See:
+                // http://trac.webkit.org/changeset/113945.
+                if (origins) {
+                    so = (location.origin == origins[i]);
+                } else {
+                    so = is_same_origin(w);
+                }
+                cache.push([w, so]);
+                i++;
+            }
+            w = window.opener;
+            if (w) {
+                // window.opener isn't included in the `location.ancestorOrigins` prop.
+                // We'll just have to deal with a simple check and an error msg on WebKit
+                // browsers in this case.
+                cache.push([w, is_same_origin(w)]);
+            }
+            this.window_cache = cache;
+        }
+
+        forEach(cache,
+                function(a) {
+                    callback.apply(null, a);
+                });
+    };
+
+    function WorkerTestEnvironment()
+    {
+        this.name_counter = 0;
+        // There is no load event in a worker. Assume loading is done.
+        this.all_loaded = true;
+    }
+
+    WorkerTestEnvironment.prototype.next_default_test_name = function()
+    {
+        var suffix = this.name_counter > 0 ? " " + this.name_counter : "";
+        this.name_counter++;
+        return "Untitled " + suffix;
+    };
+
+    // No default output handler in a worker. Output has to be handled by the
+    // client document.
+    WorkerTestEnvironment.prototype.reconfigure_output_handler = function() {};
+    WorkerTestEnvironment.prototype.create_default_output_handler = function() {};
+
+    // There is no load event in a worker.
+    WorkerTestEnvironment.prototype.add_on_loaded_callback = function(callback) {};
+
+    WorkerTestEnvironment.prototype.get_test_timeout = function()
+    {
+        return settings.harness_timeout.normal;
+    };
+
+    WorkerTestEnvironment.prototype.get_global_scope = function()
+    {
+        return self;
+    };
+
+    WorkerTestEnvironment.prototype.forEach_windows = function() {};
+
+    function create_test_environment()
+    {
+        if ('document' in self)
+            return new WindowTestEnvironment();
+        return new WorkerTestEnvironment();
+    }
+
+    var test_environment = create_test_environment();
 
     /*
      * API functions
      */
 
-    var name_counter = 0;
-    function next_default_name()
-    {
-        //Don't use document.title to work around an Opera bug in XHTML documents
-        var title = document.getElementsByTagName("title")[0];
-        var prefix = (title && title.firstChild && title.firstChild.data) || "Untitled";
-        var suffix = name_counter > 0 ? " " + name_counter : "";
-        name_counter++;
-        return prefix + suffix;
-    }
-
     function test(func, name, properties)
     {
-        var test_name = name ? name : next_default_name();
+        var test_name = name ? name : test_environment.next_default_test_name();
         properties = properties ? properties : {};
         var test_obj = new Test(test_name, properties);
         test_obj.step(func, test_obj, test_obj);
@@ -84,7 +217,7 @@ policies and contribution forms [3].
             name = func;
             func = null;
         }
-        var test_name = name ? name : next_default_name();
+        var test_name = name ? name : test_environment.next_default_test_name();
         properties = properties ? properties : {};
         var test_obj = new Test(test_name, properties);
         if (func) {
@@ -106,7 +239,7 @@ policies and contribution forms [3].
             properties = func_or_properties;
         }
         tests.setup(func, properties);
-        output.setup(properties);
+        test_environment.reconfigure_output_handler(properties);
     }
 
     function done() {
@@ -899,10 +1032,6 @@ policies and contribution forms [3].
             this.set_status(this.PASS, null);
         }
 
-        if (this.status == this.NOTRUN) {
-            alert(this.phase);
-        }
-
         this.phase = this.phases.COMPLETE;
 
         clearTimeout(this.timeout_id);
@@ -964,8 +1093,6 @@ policies and contribution forms [3].
 
         this.properties = {};
 
-        //All tests can't be done until the load event fires
-        this.all_loaded = false;
         this.wait_for_finish = false;
         this.processing_callbacks = false;
 
@@ -974,7 +1101,7 @@ policies and contribution forms [3].
         this.file_is_test = false;
 
         this.timeout_multiplier = 1;
-        this.timeout_length = this.get_timeout();
+        this.timeout_length = test_environment.get_test_timeout();
         this.timeout_id = null;
 
         this.start_callbacks = [];
@@ -985,15 +1112,11 @@ policies and contribution forms [3].
 
         var this_obj = this;
 
-        on_event(window, "load",
-                 function()
-                 {
-                     this_obj.all_loaded = true;
-                     if (this_obj.all_done())
-                     {
-                         this_obj.complete();
-                     }
-                 });
+        test_environment.add_on_loaded_callback(function() {
+            if (this_obj.all_done()) {
+                this_obj.complete();
+            }
+        });
 
         this.set_timeout();
     }
@@ -1050,18 +1173,6 @@ policies and contribution forms [3].
         async_test();
     };
 
-    Tests.prototype.get_timeout = function() {
-        var metas = document.getElementsByTagName("meta");
-        for (var i = 0; i < metas.length; i++) {
-            if (metas[i].name == "timeout") {
-                if (metas[i].content == "long") {
-                    return settings.harness_timeout.long;
-                }
-                break;
-            }
-        }
-        return settings.harness_timeout.normal;
-    };
 
     Tests.prototype.set_timeout = function() {
         var this_obj = this;
@@ -1098,8 +1209,8 @@ policies and contribution forms [3].
     };
 
     Tests.prototype.all_done = function() {
-        return (this.tests.length > 0 && this.all_loaded && this.num_pending === 0 &&
-                !this.wait_for_finish && !this.processing_callbacks);
+        return (this.tests.length > 0 && test_environment.all_loaded &&
+                this.num_pending === 0 && !this.wait_for_finish && !this.processing_callbacks);
     };
 
     Tests.prototype.start = function() {
@@ -1114,7 +1225,7 @@ policies and contribution forms [3].
                  {
                      callback(this_obj.properties);
                  });
-        forEach_windows(
+        test_environment.forEach_windows(
                 function(w, is_same_origin)
                 {
                     if (is_same_origin && w.start_callback) {
@@ -1154,7 +1265,7 @@ policies and contribution forms [3].
                     callback(test, this_obj);
                 });
 
-        forEach_windows(
+        test_environment.forEach_windows(
                 function(w, is_same_origin)
                 {
                     if (is_same_origin && w.result_callback) {
@@ -1216,7 +1327,7 @@ policies and contribution forms [3].
                      callback(this_obj.tests, this_obj.status);
                  });
 
-        forEach_windows(
+        test_environment.forEach_windows(
                 function(w, is_same_origin)
                 {
                     if (is_same_origin && w.completion_callback) {
@@ -1238,24 +1349,6 @@ policies and contribution forms [3].
                 });
     };
 
-    var tests = new Tests();
-
-    addEventListener("error", function(e) {
-        if (tests.file_is_test) {
-            var test = tests.tests[0];
-            if (test.phase >= test.phases.HAS_RESULT) {
-                return;
-            }
-            var message = e.message;
-            test.set_status(test.FAIL, message);
-            test.phase = test.phases.HAS_RESULT;
-            test.done();
-            done();
-        } else if (!tests.allow_uncaught_exception) {
-            tests.status.status = tests.status.ERROR;
-            tests.status.message = e.message;
-        }
-    });
 
     function timeout() {
         if (tests.timeout_length === null) {
@@ -1388,6 +1481,24 @@ policies and contribution forms [3].
 
         while (log.lastChild) {
             log.removeChild(log.lastChild);
+        }
+
+        var script_prefix = null;
+        var scripts = document.getElementsByTagName("script");
+        for (var i = 0; i < scripts.length; i++) {
+            var src;
+            if (scripts[i].src) {
+                src = scripts[i].src;
+            } else if (scripts[i].href) {
+                //SVG case
+                src = scripts[i].href.baseVal;
+            }
+
+            var matches = src && src.match(/^(.*\/|)testharness\.js$/);
+            if (matches) {
+                script_prefix = matches[1];
+                break;
+            }
         }
 
         if (script_prefix != null) {
@@ -1553,11 +1664,6 @@ policies and contribution forms [3].
                .textContent = html;
         }
     };
-
-    var output = new Output();
-    add_start_callback(function (properties) {output.init(properties);});
-    add_result_callback(function () {output.show_status();});
-    add_completion_callback(function (tests, harness_status) {output.show_results(tests, harness_status);});
 
     /*
      * Template code
@@ -1818,7 +1924,7 @@ policies and contribution forms [3].
     function expose(object, name)
     {
         var components = name.split(".");
-        var target = window;
+        var target = test_environment.get_global_scope();
         for (var i = 0; i < components.length - 1; i++) {
             if (!(components[i] in target)) {
                 target[components[i]] = {};
@@ -1826,56 +1932,6 @@ policies and contribution forms [3].
             target = target[components[i]];
         }
         target[components[components.length - 1]] = object;
-    }
-
-    function forEach_windows(callback) {
-        // Iterate of the the windows [self ... top, opener]. The callback is passed
-        // two objects, the first one is the windows object itself, the second one
-        // is a boolean indicating whether or not its on the same origin as the
-        // current window.
-        var cache = forEach_windows.result_cache;
-        if (!cache) {
-            cache = [[self, true]];
-            var w = self;
-            var i = 0;
-            var so;
-            var origins = location.ancestorOrigins;
-            while (w != w.parent) {
-                w = w.parent;
-                // In WebKit, calls to parent windows' properties that aren't on the same
-                // origin cause an error message to be displayed in the error console but
-                // don't throw an exception. This is a deviation from the current HTML5
-                // spec. See: https://bugs.webkit.org/show_bug.cgi?id=43504
-                // The problem with WebKit's behavior is that it pollutes the error console
-                // with error messages that can't be caught.
-                //
-                // This issue can be mitigated by relying on the (for now) proprietary
-                // `location.ancestorOrigins` property which returns an ordered list of
-                // the origins of enclosing windows. See:
-                // http://trac.webkit.org/changeset/113945.
-                if (origins) {
-                    so = (location.origin == origins[i]);
-                } else {
-                    so = is_same_origin(w);
-                }
-                cache.push([w, so]);
-                i++;
-            }
-            w = window.opener;
-            if (w) {
-                // window.opener isn't included in the `location.ancestorOrigins` prop.
-                // We'll just have to deal with a simple check and an error msg on WebKit
-                // browsers in this case.
-                cache.push([w, is_same_origin(w)]);
-            }
-            forEach_windows.result_cache = cache;
-        }
-
-        forEach(cache,
-                function(a)
-                {
-                    callback.apply(null, a);
-                });
     }
 
     function is_same_origin(w) {
@@ -1923,5 +1979,31 @@ policies and contribution forms [3].
         }
         return supports;
     }
+
+    /**
+     * Setup globals
+     */
+
+    var tests = new Tests();
+
+    addEventListener("error", function(e) {
+        if (tests.file_is_test) {
+            var test = tests.tests[0];
+            if (test.phase >= test.phases.HAS_RESULT) {
+                return;
+            }
+            var message = e.message;
+            test.set_status(test.FAIL, message);
+            test.phase = test.phases.HAS_RESULT;
+            test.done();
+            done();
+        } else if (!tests.allow_uncaught_exception) {
+            tests.status.status = tests.status.ERROR;
+            tests.status.message = e.message;
+        }
+    });
+
+    test_environment.create_default_output_handler();
+
 })();
 // vim: set expandtab shiftwidth=4 tabstop=4:
