@@ -43,8 +43,9 @@ policies and contribution forms [3].
                 src = scripts[i].href.baseVal;
             }
 
-            if (src && src.slice(src.length - "testharness.js".length) === "testharness.js") {
-                script_prefix = src.slice(0, src.length - "testharness.js".length);
+            var matches = src && src.match(/^(.*\/|)testharness\.js$/);
+            if (matches) {
+                script_prefix = matches[1];
                 break;
             }
         }
