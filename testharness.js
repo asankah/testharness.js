@@ -1970,8 +1970,6 @@ policies and contribution forms [3].
         return element;
     }
 
-
-
     function make_dom(template, substitutions, output_document)
     {
         if (is_single_node(template)) {
