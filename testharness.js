@@ -366,6 +366,27 @@ policies and contribution forms [3].
         return test_obj;
     }
 
+    function promise_test(func, name, properties)
+    {
+        var test_name = name ? name : test_environment.next_default_test_name();
+        properties = properties ? properties : {};
+        var test_obj = new Test(test_name, properties);
+
+        new Promise(function(resolve, reject) {
+            resolve(test_obj.step(func, test_obj, test_obj));
+        }).
+        catch(test_obj.step_func(function(value) {
+            if (typeof value === "object" && "message" in value) {
+                throw value;
+            }
+            assert(false, "promise_test", null,
+                "Unhandled rejection with value: ${value}", {value:value});
+        })).
+        then(function() {
+            test_obj.done();
+        });
+    }
+
     function setup(func_or_properties, maybe_properties)
     {
         var func = null;
@@ -412,6 +433,7 @@ policies and contribution forms [3].
 
     expose(test, 'test');
     expose(async_test, 'async_test');
+    expose(promise_test, 'promise_test');
     expose(generate_tests, 'generate_tests');
     expose(setup, 'setup');
     expose(done, 'done');

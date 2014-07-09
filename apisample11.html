@@ -1,0 +1,94 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>Promise Tests</title>
+</head>
+<body>
+<h1>Promise Tests</h1>
+<p>This test assumes ECMAScript 6 Promise support. Some failures are expected.</p>
+<div id="log"></div>
+<script src="testharness.js"></script>
+<script src="testharnessreport.js"></script>
+<script>
+
+test(function() {
+  var p = new Promise(function(resolve, reject) {});
+  assert_true('then' in p);
+  assert_equals(typeof Promise.resolve, 'function');
+  assert_equals(typeof Promise.reject, 'function');
+}, "Promises are supported in your browser");
+
+promise_test(function(t) {
+  return Promise.resolve('x')
+  .then(t.step_func(function(value) {
+    assert_equals(value, 'x', 'Fulfilled promise should pass result to ' +
+                              '\'then\' method');
+  }));
+}, 'Promise resolution');
+
+promise_test(function(t) {
+  return Promise.reject(Error('fail'))
+  .then(t.unreached_func('Promise should reject'),
+        t.step_func(function(reason) {
+          assert_true(reason instanceof Error,
+              'Rejected promise should pass reason to \'then\' method');
+          assert_equals(reason.message, 'fail',
+              'Rejected promise should pass reason to \'then\' method');
+        }));
+}, 'Promise rejection');
+
+promise_test(function(t) {
+  var resolutions = [];
+  return Promise.resolve('a')
+  .then(t.step_func(function(value) {
+    resolutions.push(value);
+    return 'b';
+  }))
+  .then(t.step_func(function(value) {
+    resolutions.push(value);
+    return 'c';
+  }))
+  .then(t.step_func(function(value) {
+    resolutions.push(value);
+
+    assert_array_equals(resolutions, ['a', 'b', 'c']);
+  }));
+}, 'Promises resolution chaining');
+
+promise_test(function(t) {
+  var resolutions = [];
+  return Promise.resolve('x')
+  .then(t.step_func(function(value) {
+    assert_true(false, 'This failure is expected');
+  }))
+  .then(t.unreached_func('Promise should not have resolved'))
+  .catch(t.unreached_func('Promise should not have rejected'));
+}, 'Promises and test assertion failures (should fail)');
+
+promise_test(function(t) {
+  return new Promise(function(resolve, reject) {
+    reject(123);
+  })
+  .then(t.step_func(function(value) {
+    assert_equals(value, 123, 'This shouldn\'t actually happen');
+  }), t.unreached_func('This failure is expected'));
+}, 'Use of unreached_func with Promises (should fail)');
+
+promise_test(function() {
+  return true;
+}, 'promise_test with function that doesn\'t return a Promise');
+
+promise_test(function() {},
+             'promise_test with function that doesn\'t return anything');
+
+promise_test(function() {
+  return Promise.reject('X');
+}, 'promise_test with unhandled rejection (should fail)');
+
+promise_test(function() {
+  return Promise.resolve(10)
+  .then(function(value) {
+    throw Error('Unexpected exception');
+  });
+}, 'promise_test with unhandled exception (should fail)');
+</script>
