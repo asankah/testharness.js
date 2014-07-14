@@ -58,7 +58,7 @@ policies and contribution forms [3].
         return prefix + suffix;
     };
 
-    WindowTestEnvironment.prototype.create_default_output_handler = function()
+    WindowTestEnvironment.prototype.create_output_handler = function()
     {
         var output = new Output();
         add_start_callback(function (properties) {
@@ -73,7 +73,7 @@ policies and contribution forms [3].
         this.output_handler = output;
     };
 
-    WindowTestEnvironment.prototype.reconfigure_output_handler = function(properties)
+    WindowTestEnvironment.prototype.set_output_properties = function(properties)
     {
         this.output_handler.setup(properties);
     };
@@ -168,8 +168,8 @@ policies and contribution forms [3].
 
     // No default output handler in a worker. Output has to be handled by the
     // client document.
-    WorkerTestEnvironment.prototype.reconfigure_output_handler = function() {};
-    WorkerTestEnvironment.prototype.create_default_output_handler = function() {};
+    WorkerTestEnvironment.prototype.set_output_properties = function() {};
+    WorkerTestEnvironment.prototype.create_output_handler = function() {};
 
     // There is no load event in a worker.
     WorkerTestEnvironment.prototype.add_on_loaded_callback = function(callback) {};
@@ -239,7 +239,7 @@ policies and contribution forms [3].
             properties = func_or_properties;
         }
         tests.setup(func, properties);
-        test_environment.reconfigure_output_handler(properties);
+        test_environment.set_output_properties(properties);
     }
 
     function done() {
@@ -2003,7 +2003,7 @@ policies and contribution forms [3].
         }
     });
 
-    test_environment.create_default_output_handler();
+    test_environment.create_output_handler();
 
 })();
 // vim: set expandtab shiftwidth=4 tabstop=4:
