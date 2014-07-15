@@ -58,19 +58,99 @@ policies and contribution forms [3].
         return prefix + suffix;
     };
 
+    WindowTestEnvironment.prototype.on_start_handler = function(properties)
+    {
+        this.output_handler.init(properties);
+        this.forEach_windows(
+                function(w, is_same_origin)
+                {
+                    if (is_same_origin && w.start_callback) {
+                        try {
+                            w.start_callback(properties);
+                        } catch (e) {
+                            if (debug) {
+                                throw e;
+                            }
+                        }
+                    }
+                    if (supports_post_message(w) && w !== self) {
+                        w.postMessage({
+                            type: "start",
+                            properties: properties
+                        }, "*");
+                    }
+                });
+    };
+
+    WindowTestEnvironment.prototype.on_result_handler = function(test)
+    {
+        this.output_handler.show_status();
+        this.forEach_windows(
+                function(w, is_same_origin)
+                {
+                    if (is_same_origin && w.result_callback) {
+                        try {
+                            w.result_callback(test);
+                        } catch (e) {
+                            if (debug) {
+                                throw e;
+                            }
+                        }
+                    }
+                    if (supports_post_message(w) && w !== self) {
+                        w.postMessage({
+                            type: "result",
+                            test: test.structured_clone()
+                        }, "*");
+                    }
+                });
+    };
+
+    WindowTestEnvironment.prototype.on_complete_handler = function(tests, harness_status)
+    {
+        this.output_handler.show_results(tests, harness_status);
+        var cloned_tests = map(tests,
+                        function(test)
+                        {
+                            return test.structured_clone();
+                        });
+        this.forEach_windows(
+                function(w, is_same_origin)
+                {
+                    if (is_same_origin && w.completion_callback) {
+                        try {
+                            w.completion_callback(tests, harness_status);
+                        } catch (e) {
+                            if (debug) {
+                                throw e;
+                            }
+                        }
+                    }
+                    if (supports_post_message(w) && w !== self) {
+                        w.postMessage({
+                            type: "complete",
+                            tests: cloned_tests,
+                            status: harness_status.structured_clone()
+                        }, "*");
+                    }
+                });
+    };
+
     WindowTestEnvironment.prototype.create_output_handler = function()
     {
         var output = new Output();
+        this.output_handler = output;
+
+        var this_obj = this;
         add_start_callback(function (properties) {
-            output.init(properties);
+            this_obj.on_start_handler(properties);
         });
-        add_result_callback(function () {
-            output.show_status();
+        add_result_callback(function (test) {
+            this_obj.on_result_handler(test);
         });
         add_completion_callback(function (tests, harness_status) {
-            output.show_results(tests, harness_status);
+            this_obj.on_complete_handler(tests, harness_status);
         });
-        this.output_handler = output;
     };
 
     WindowTestEnvironment.prototype.set_output_properties = function(properties)
@@ -183,8 +263,6 @@ policies and contribution forms [3].
     {
         return self;
     };
-
-    WorkerTestEnvironment.prototype.forEach_windows = function() {};
 
     function create_test_environment()
     {
@@ -1225,25 +1303,6 @@ policies and contribution forms [3].
                  {
                      callback(this_obj.properties);
                  });
-        test_environment.forEach_windows(
-                function(w, is_same_origin)
-                {
-                    if (is_same_origin && w.start_callback) {
-                        try {
-                            w.start_callback(this_obj.properties);
-                        } catch (e) {
-                            if (debug) {
-                                throw e;
-                            }
-                        }
-                    }
-                    if (supports_post_message(w) && w !== self) {
-                        w.postMessage({
-                            type: "start",
-                            properties: this_obj.properties
-                        }, "*");
-                    }
-                });
     };
 
     Tests.prototype.result = function(test)
@@ -1263,26 +1322,6 @@ policies and contribution forms [3].
                 function(callback)
                 {
                     callback(test, this_obj);
-                });
-
-        test_environment.forEach_windows(
-                function(w, is_same_origin)
-                {
-                    if (is_same_origin && w.result_callback) {
-                        try {
-                            w.result_callback(test);
-                        } catch (e) {
-                            if (debug) {
-                                throw e;
-                            }
-                        }
-                    }
-                    if (supports_post_message(w) && w !== self) {
-                        w.postMessage({
-                            type: "result",
-                            test: test.structured_clone()
-                        }, "*");
-                    }
                 });
         this.processing_callbacks = false;
         if (this_obj.all_done()) {
@@ -1312,11 +1351,6 @@ policies and contribution forms [3].
     {
         clearTimeout(this.timeout_id);
         var this_obj = this;
-        var tests = map(this_obj.tests,
-                        function(test)
-                        {
-                            return test.structured_clone();
-                        });
         if (this.status.status === null) {
             this.status.status = this.status.OK;
         }
@@ -1326,29 +1360,21 @@ policies and contribution forms [3].
                  {
                      callback(this_obj.tests, this_obj.status);
                  });
-
-        test_environment.forEach_windows(
-                function(w, is_same_origin)
-                {
-                    if (is_same_origin && w.completion_callback) {
-                        try {
-                            w.completion_callback(this_obj.tests, this_obj.status);
-                        } catch (e) {
-                            if (debug) {
-                                throw e;
-                            }
-                        }
-                    }
-                    if (supports_post_message(w) && w !== self) {
-                        w.postMessage({
-                            type: "complete",
-                            tests: tests,
-                            status: this_obj.status.structured_clone()
-                        }, "*");
-                    }
-                });
     };
 
+    Tests.prototype.synthesize_from_test_results = function(remote_tests, remote_harness_status)
+    {
+        for (var i = 0; i < remote_tests.length; ++i) {
+            var synthesized_test = new RemoteTest(remote_tests[i]);
+            tests.push(synthesized_test);
+            tests.result(synthesized_test);
+        }
+
+        if (remote_harness_status !== null) {
+            this.status.status = remote_harness_status.status;
+            this.status.message = remote_harness_status.message;
+        }
+    }
 
     function timeout() {
         if (tests.timeout_length === null) {
