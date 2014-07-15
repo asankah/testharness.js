@@ -1,0 +1,9 @@
+<!DOCTYPE HTML>
+<title>Example with a dedicated worker</title>
+<script src="testharness.js"></script>
+<script src="testharnessreport.js"></script>
+<script>
+var worker = new Worker('apisample14-worker.js');
+listen_on_MessagePort(worker);
+</script>
+

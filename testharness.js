@@ -273,9 +273,8 @@ policies and contribution forms [3].
         return "Untitled " + suffix;
     };
 
-    // No default output handler in a worker. Output has to be handled by the
-    // client document.
     WorkerTestEnvironment.prototype.set_output_properties = function() {};
+
     WorkerTestEnvironment.prototype.create_output_handler = function() {};
 
     // There is no load event in a worker.
@@ -291,10 +290,46 @@ policies and contribution forms [3].
         return self;
     };
 
+    /*
+     * A dedicated worker.
+     */
+    function DedicatedWorkerTestEnvironment()
+    {
+        WorkerTestEnvironment.call(this);
+    }
+
+    DedicatedWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
+
+    DedicatedWorkerTestEnvironment.prototype.create_output_handler = function() {
+        add_start_callback(function(properties) {
+            postMessage({
+                type: "start",
+                properties: properties
+            });
+        });
+        add_result_callback(function(test) {
+            postMessage({
+                type: "result",
+                test: test.structured_clone()
+            });
+        });
+        add_completion_callback(function(tests, harness_status) {
+            postMessage({
+                type: "complete",
+                tests: map(tests, function(test) {
+                    return test.structured_clone();
+                }),
+                status: harness_status.structured_clone()
+            });
+        });
+    };
+
     function create_test_environment()
     {
         if ('document' in self)
             return new WindowTestEnvironment();
+        if ('DedicatedWorkerGlobalScope' in self)
+            return new DedicatedWorkerTestEnvironment();
         return new WorkerTestEnvironment();
     }
 
@@ -1412,20 +1447,43 @@ policies and contribution forms [3].
                  });
     };
 
-    Tests.prototype.import_remote_test = function(remote_test_data)
+    Tests.prototype.listen_on_MessagePort = function(port)
     {
-        var remote_test = new RemoteTest(remote_test_data);
-        tests.push(remote_test);
-        tests.result(remote_test);
+        if (this.phase >= this.phases.HAVE_RESULTS)
+            return;
+
+        this.wait_for_finish = true;
+
+        var this_obj = this;
+        var handlers = {
+            result: function(data) {
+                var remote_test = new RemoteTest(data.test);
+                this_obj.push(remote_test);
+                this_obj.result(remote_test);
+            },
+
+            complete: function(data) {
+                this_obj.status.status = data.status.status;
+                this_obj.status.message = data.status.message;
+                this_obj.done();
+            }
+        };
+        port.addEventListener(port, 'message', function(message)
+                {
+                    if (message.data.type && message.data.type in handlers) {
+                        handlers[message.data.type](message.data);
+                    }
+                });
+        port.postMessage({
+            type: "get_results"
+        });
     };
 
-    Tests.prototype.import_remote_status = function(remote_status_data)
+    function listen_on_MessagePort(port)
     {
-        if (remote_status_data !== null) {
-            this.status.status = remote_status_data.status;
-            this.status.message = remote_status_data.message;
-        }
-    };
+        tests.listen_on_MessagePort(port);
+    }
+    expose(listen_on_MessagePort, 'listen_on_MessagePort');
 
     function timeout() {
         if (tests.timeout_length === null) {
