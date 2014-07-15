@@ -1,0 +1,36 @@
+<!DOCTYPE HTML>
+<title>Example with notifying iframe</title>
+<script src="testharness.js"></script>
+<script src="testharnessreport.js"></script>
+<script>
+
+var t = async_test("Containing document receives callbacks");
+var start_received = false;
+var result_received = false;
+var completion_received = false;
+
+start_callback = t.step_func(function(properties) {
+  assert_false(start_received, "\'start\' should only be seen once");
+  start_received = true;
+});
+
+result_callback = t.step_func(function(test) {
+  assert_true(start_received, "\'start\' should be received before \'result\'.");
+  assert_false(result_received, "Only one test expected.");
+  assert_equals(test.PASS, test.status);
+  result_received = true;
+});
+
+completion_callback = t.step_func(function(tests, status) {
+  assert_true(result_received, "Result should be received before completion.");
+  assert_false(completion_received, "Completion should only be invoked once.");
+  assert_equals(1, tests.length, "Only one test expected.");
+  assert_equals(tests[0].PASS, tests[0].status);
+  t.done();
+});
+
+</script>
+<iframe src="apisample6.html" style="display:none">
+  <!-- apisample6 implements a file_is_test test. -->
+</iframe>
+
