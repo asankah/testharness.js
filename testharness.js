@@ -48,20 +48,10 @@ policies and contribution forms [3].
         });
     }
 
-    WindowTestEnvironment.prototype.next_default_test_name = function()
-    {
-        //Don't use document.title to work around an Opera bug in XHTML documents
-        var title = document.getElementsByTagName("title")[0];
-        var prefix = (title && title.firstChild && title.firstChild.data) || "Untitled";
-        var suffix = this.name_counter > 0 ? " " + this.name_counter : "";
-        this.name_counter++;
-        return prefix + suffix;
-    };
-
-    WindowTestEnvironment.prototype.on_start_handler = function(properties)
+    WindowTestEnvironment.prototype._on_start_handler = function(properties)
     {
         this.output_handler.init(properties);
-        this.forEach_windows(
+        this._forEach_windows(
                 function(w, is_same_origin)
                 {
                     if (is_same_origin && w.start_callback) {
@@ -82,10 +72,10 @@ policies and contribution forms [3].
                 });
     };
 
-    WindowTestEnvironment.prototype.on_result_handler = function(test)
+    WindowTestEnvironment.prototype._on_result_handler = function(test)
     {
         this.output_handler.show_status();
-        this.forEach_windows(
+        this._forEach_windows(
                 function(w, is_same_origin)
                 {
                     if (is_same_origin && w.result_callback) {
@@ -106,7 +96,7 @@ policies and contribution forms [3].
                 });
     };
 
-    WindowTestEnvironment.prototype.on_complete_handler = function(tests, harness_status)
+    WindowTestEnvironment.prototype._on_complete_handler = function(tests, harness_status)
     {
         this.output_handler.show_results(tests, harness_status);
         var cloned_tests = map(tests,
@@ -114,7 +104,7 @@ policies and contribution forms [3].
                         {
                             return test.structured_clone();
                         });
-        this.forEach_windows(
+        this._forEach_windows(
                 function(w, is_same_origin)
                 {
                     if (is_same_origin && w.completion_callback) {
@@ -136,53 +126,7 @@ policies and contribution forms [3].
                 });
     };
 
-    WindowTestEnvironment.prototype.create_output_handler = function()
-    {
-        var output = new Output();
-        this.output_handler = output;
-
-        var this_obj = this;
-        add_start_callback(function (properties) {
-            this_obj.on_start_handler(properties);
-        });
-        add_result_callback(function (test) {
-            this_obj.on_result_handler(test);
-        });
-        add_completion_callback(function (tests, harness_status) {
-            this_obj.on_complete_handler(tests, harness_status);
-        });
-    };
-
-    WindowTestEnvironment.prototype.set_output_properties = function(properties)
-    {
-        this.output_handler.setup(properties);
-    };
-
-    WindowTestEnvironment.prototype.add_on_loaded_callback = function(callback)
-    {
-        on_event(window, 'load', callback);
-    };
-
-    WindowTestEnvironment.prototype.get_test_timeout = function()
-    {
-        var metas = document.getElementsByTagName("meta");
-        for (var i = 0; i < metas.length; i++) {
-            if (metas[i].name == "timeout") {
-                if (metas[i].content == "long") {
-                    return settings.harness_timeout.long;
-                }
-                break;
-            }
-        }
-        return settings.harness_timeout.normal;
-    };
-
-    WindowTestEnvironment.prototype.get_global_scope = function()
-    {
-        return window;
-    };
-
-    WindowTestEnvironment.prototype.forEach_windows = function(callback)
+    WindowTestEnvironment.prototype._forEach_windows = function(callback)
     {
         // Iterate of the the windows [self ... top, opener]. The callback is passed
         // two objects, the first one is the windows object itself, the second one
@@ -230,6 +174,62 @@ policies and contribution forms [3].
                 function(a) {
                     callback.apply(null, a);
                 });
+    };
+
+    WindowTestEnvironment.prototype.create_output_handler = function()
+    {
+        var output = new Output();
+        this.output_handler = output;
+
+        var this_obj = this;
+        add_start_callback(function (properties) {
+            this_obj._on_start_handler(properties);
+        });
+        add_result_callback(function (test) {
+            this_obj._on_result_handler(test);
+        });
+        add_completion_callback(function (tests, harness_status) {
+            this_obj._on_complete_handler(tests, harness_status);
+        });
+    };
+
+    WindowTestEnvironment.prototype.next_default_test_name = function()
+    {
+        //Don't use document.title to work around an Opera bug in XHTML documents
+        var title = document.getElementsByTagName("title")[0];
+        var prefix = (title && title.firstChild && title.firstChild.data) || "Untitled";
+        var suffix = this.name_counter > 0 ? " " + this.name_counter : "";
+        this.name_counter++;
+        return prefix + suffix;
+    };
+
+    WindowTestEnvironment.prototype.set_output_properties = function(properties)
+    {
+        this.output_handler.setup(properties);
+    };
+
+    WindowTestEnvironment.prototype.add_on_loaded_callback = function(callback)
+    {
+        on_event(window, 'load', callback);
+    };
+
+    WindowTestEnvironment.prototype.get_test_timeout = function()
+    {
+        var metas = document.getElementsByTagName("meta");
+        for (var i = 0; i < metas.length; i++) {
+            if (metas[i].name == "timeout") {
+                if (metas[i].content == "long") {
+                    return settings.harness_timeout.long;
+                }
+                break;
+            }
+        }
+        return settings.harness_timeout.normal;
+    };
+
+    WindowTestEnvironment.prototype.get_global_scope = function()
+    {
+        return window;
     };
 
     function WorkerTestEnvironment()
