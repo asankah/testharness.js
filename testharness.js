@@ -1412,33 +1412,20 @@ policies and contribution forms [3].
                  });
     };
 
-    Tests.prototype.synthesize_from_test_results = function(remote_tests, remote_harness_status)
+    Tests.prototype.import_remote_test = function(remote_test_data)
     {
-        for (var i = 0; i < remote_tests.length; ++i) {
-            var synthesized_test = new RemoteTest(remote_tests[i]);
-            tests.push(synthesized_test);
-            tests.result(synthesized_test);
-        }
+        var remote_test = new RemoteTest(remote_test_data);
+        tests.push(remote_test);
+        tests.result(remote_test);
+    };
 
-        if (remote_harness_status !== null) {
-            this.status.status = remote_harness_status.status;
-            this.status.message = remote_harness_status.message;
-        }
-    }
-
-    Tests.prototype.synthesize_from_test_results = function(remote_tests, remote_harness_status)
+    Tests.prototype.import_remote_status = function(remote_status_data)
     {
-        for (var i = 0; i < remote_tests.length; ++i) {
-            var synthesized_test = new RemoteTest(remote_tests[i]);
-            tests.push(synthesized_test);
-            tests.result(synthesized_test);
+        if (remote_status_data !== null) {
+            this.status.status = remote_status_data.status;
+            this.status.message = remote_status_data.message;
         }
-
-        if (remote_harness_status !== null) {
-            this.status.status = remote_harness_status.status;
-            this.status.message = remote_harness_status.message;
-        }
-    }
+    };
 
     function timeout() {
         if (tests.timeout_length === null) {
@@ -1464,12 +1451,6 @@ policies and contribution forms [3].
     expose(add_start_callback, 'add_start_callback');
     expose(add_result_callback, 'add_result_callback');
     expose(add_completion_callback, 'add_completion_callback');
-
-    function synthesize_tests(cloned_tests, status)
-    {
-        tests.synthesize_from_test_results(cloned_tests, status);
-    }
-    expose(synthesize_tests, 'synthesize_tests');
 
     /*
      * Output listener
