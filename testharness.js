@@ -30,11 +30,35 @@ policies and contribution forms [3].
     /*
      * Test environment
      *
-     * The test harness can be invoked with or without a DOM. When invoked
-     * without a DOM, the harness needs to degrade gracefully with disabling
-     * features that cannot be used from within a worker. Aspects that depend on
-     * a DOM are abstracted and provided by WindowTestEnvironment (for a browser
-     * window) and WorkerTestEnvironment (for a web worker).
+     * This is an abstraction for the environment in which the test harness is
+     * used. Each implementation of a test environment has to provide the
+     * following interface:
+     *
+     * create_output_handler(): Invoked when it's safe to call add_*_callback()
+     *     to register test event handlers.
+     *
+     * set_output_properties(properties): Invoked when the test runner has
+     *     called setup(...).
+     *
+     * next_default_test_name(): Should return the next default test name.
+     *     Called if a test does not have an explicit name defined.
+     *
+     * add_on_loaded_callback(callback): Should schedule callback to be invoked
+     *     when the current document has loaded. This is the point at which
+     *     scripts on the document have had a chance to run.
+     *
+     * get_test_timeout(): Should return the number of milliseconds to wait for
+     *     a test to time out.
+     *
+     * get_global_scope(): Should return the object that's considered the global
+     *     scope.
+     */
+
+    /*
+     * A test environment with a DOM. The global object is 'window'. By default
+     * test results are displayed in a table. Any parent windows receive
+     * callbacks or messages via postMessage() when test events occur. See
+     * apisample12.html and apisample13.html.
      */
     function WindowTestEnvironment()
     {
@@ -232,6 +256,9 @@ policies and contribution forms [3].
         return window;
     };
 
+    /*
+     * A web worker.
+     */
     function WorkerTestEnvironment()
     {
         this.name_counter = 0;
