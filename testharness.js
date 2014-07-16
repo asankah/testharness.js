@@ -382,6 +382,9 @@ policies and contribution forms [3].
         if ('SharedWorkerGlobalScope' in self) {
             return new SharedWorkerTestEnvironment();
         }
+        if ('ServiceWorkerGlobalScope' in self) {
+            return new ServiceWorkerTestEnvironment();
+        }
         return new WorkerTestEnvironment();
     }
 
