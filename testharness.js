@@ -1262,7 +1262,7 @@ policies and contribution forms [3].
 
     function RemoteTest(clone)
     {
-        for (p in clone) {
+        for (var p in clone) {
             this[p] = clone[p];
         }
     }
@@ -1270,7 +1270,7 @@ policies and contribution forms [3].
     RemoteTest.prototype.structured_clone = function()
     {
         var clone = {};
-        for (p in this) {
+        for (var p in this) {
             if (this[p] instanceof Function) {
                 continue;
             } else if (this[p] instanceof Object) {
@@ -1280,7 +1280,7 @@ policies and contribution forms [3].
             }
         }
         return clone;
-    }
+    };
 
     /*
      * Harness
