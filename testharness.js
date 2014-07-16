@@ -435,8 +435,7 @@ policies and contribution forms [3].
             }
             assert(false, "promise_test", null,
                 "Unhandled rejection with value: ${value}", {value:value});
-        })).
-        then(function() {
+        })).then(function() {
             test_obj.done();
         });
     }
