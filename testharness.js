@@ -356,6 +356,20 @@ policies and contribution forms [3].
         });
     }
     SharedWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
+    
+    /*
+     * A service worker.
+     */
+    function ServiceWorkerTestEnvironment()
+    {
+        WorkerTestEnvironment.call(this);
+        var this_obj = this;
+        self.addEventListener("message", function(message)
+        {
+            this_obj._add_message_port(message.ports[0]);
+        });
+    }
+    ServiceWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
 
     function create_test_environment()
     {
