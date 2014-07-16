@@ -262,9 +262,28 @@ policies and contribution forms [3].
     function WorkerTestEnvironment()
     {
         this.name_counter = 0;
-        // There is no load event in a worker. Assume loading is done.
         this.all_loaded = true;
+        this.message_list = [];
+        this.message_ports = [];
     }
+    
+    WorkerTestEnvironment.prototype._dispatch = function(message)
+    {
+        this.message_list.push(message);
+        for (var i = 0; i < this.message_ports.length; ++i)
+        {
+            this.message_ports[i].postMessage(message);
+        }
+    };
+    
+    WorkerTestEnvironment.prototype._add_message_port = function(port)
+    {
+        this.message_ports.push(port);
+        for (var i = 0; i < this.message_list.length; ++i)
+        {
+            port.postMessage(this.message_list[i]);
+        }
+    };
 
     WorkerTestEnvironment.prototype.next_default_test_name = function()
     {
@@ -275,7 +294,31 @@ policies and contribution forms [3].
 
     WorkerTestEnvironment.prototype.set_output_properties = function() {};
 
-    WorkerTestEnvironment.prototype.create_output_handler = function() {};
+    WorkerTestEnvironment.prototype.create_output_handler = function()
+    {
+        var this_obj = this;
+        add_start_callback(function(properties) {
+            this_obj._dispatch({
+                type: "start",
+                properties: properties
+            });
+        });
+        add_result_callback(function(test) {
+            this_obj._dispatch({
+                type: "result",
+                test: test.structured_clone()
+            });
+        });
+        add_completion_callback(function(tests, harness_status) {
+            this_obj._dispatch({
+                type: "complete",
+                tests: map(tests, function(test) {
+                    return test.structured_clone();
+                }),
+                status: harness_status.structured_clone()
+            });
+        });
+    };
 
     // There is no load event in a worker.
     WorkerTestEnvironment.prototype.add_on_loaded_callback = function(callback) {};
@@ -296,33 +339,9 @@ policies and contribution forms [3].
     function DedicatedWorkerTestEnvironment()
     {
         WorkerTestEnvironment.call(this);
+        this._add_message_port(self);
     }
-
     DedicatedWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
-
-    DedicatedWorkerTestEnvironment.prototype.create_output_handler = function() {
-        add_start_callback(function(properties) {
-            postMessage({
-                type: "start",
-                properties: properties
-            });
-        });
-        add_result_callback(function(test) {
-            postMessage({
-                type: "result",
-                test: test.structured_clone()
-            });
-        });
-        add_completion_callback(function(tests, harness_status) {
-            postMessage({
-                type: "complete",
-                tests: map(tests, function(test) {
-                    return test.structured_clone();
-                }),
-                status: harness_status.structured_clone()
-            });
-        });
-    };
 
     function create_test_environment()
     {
