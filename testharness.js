@@ -1082,7 +1082,7 @@ policies and contribution forms [3].
 
         this.properties = properties;
         var timeout = properties.timeout ? properties.timeout : settings.test_timeout;
-        if (timeout != null) {
+        if (timeout !== null) {
             this.timeout_length = timeout * tests.timeout_multiplier;
         } else {
             this.timeout_length = null;
@@ -1209,7 +1209,7 @@ policies and contribution forms [3].
     Test.prototype.force_timeout = function() {
         this.set_status(this.TIMEOUT);
         this.phase = this.phases.HAS_RESULT;
-    }
+    };
 
     Test.prototype.set_timeout = function()
     {
@@ -1709,7 +1709,7 @@ policies and contribution forms [3].
             }
         }
 
-        if (script_prefix != null) {
+        if (script_prefix !== null) {
             var stylesheet = output_document.createElementNS(xhtml_ns, "link");
             stylesheet.setAttribute("rel", "stylesheet");
             stylesheet.setAttribute("href", script_prefix + "testharness.css");
