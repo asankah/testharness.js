@@ -66,7 +66,7 @@ policies and contribution forms [3].
         this.window_cache = null;
         this.output_handler = null;
         this.all_loaded = false;
-        this_obj = this;
+        var this_obj = this;
         on_event(window, 'load', function() {
             this_obj.all_loaded = true;
         });
@@ -374,8 +374,7 @@ policies and contribution forms [3].
 
         new Promise(function(resolve, reject) {
             resolve(test_obj.step(func, test_obj, test_obj));
-        }).
-        catch(test_obj.step_func(function(value) {
+        }).catch(test_obj.step_func(function(value) {
             if (typeof value === "object" && "message" in value) {
                 throw value;
             }
