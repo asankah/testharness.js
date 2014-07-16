@@ -342,13 +342,32 @@ policies and contribution forms [3].
         this._add_message_port(self);
     }
     DedicatedWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
+    
+    /*
+     * A shared worker.
+     */
+    function SharedWorkerTestEnvironment()
+    {
+        WorkerTestEnvironment.call(this);
+        var this_obj = this;
+        self.addEventListener("connect", function(message)
+        {
+            this_obj._add_message_port(message.ports[0]);
+        });
+    }
+    SharedWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
 
     function create_test_environment()
     {
-        if ('document' in self)
+        if ('document' in self) {
             return new WindowTestEnvironment();
-        if ('DedicatedWorkerGlobalScope' in self)
+        }
+        if ('DedicatedWorkerGlobalScope' in self) {
             return new DedicatedWorkerTestEnvironment();
+        }
+        if ('SharedWorkerGlobalScope' in self) {
+            return new SharedWorkerTestEnvironment();
+        }
         return new WorkerTestEnvironment();
     }
 
