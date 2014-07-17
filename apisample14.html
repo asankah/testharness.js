@@ -5,5 +5,10 @@
 <script>
 var worker = new Worker('apisample14-worker.js');
 listen_on_MessagePort(worker);
+
+test(function(t) {
+  assert_false(false, "False is false");
+}, "Test running on main document. " +
+"There should be an additional test named \'Test running on worker\'.");
 </script>
 
