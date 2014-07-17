@@ -1525,10 +1525,16 @@ policies and contribution forms [3].
                  });
     };
 
-    Tests.prototype.join_tests_on_message_port = function(port)
+    Tests.prototype.fetch_tests_from_worker = function(worker)
     {
-        if (this.phase >= this.phases.HAVE_RESULTS)
+        if (this.phase >= this.phases.COMPLETE)
             return;
+        var port = worker;
+        // Worker and ServiceWorker are implicit message ports, while
+        // SharedWorker has an explicit message port.
+        if (worker instanceof SharedWorker) {
+            port = worker.port;
+        }
 
         this.num_pending_remotes++;
 
@@ -1551,6 +1557,19 @@ policies and contribution forms [3].
                 }
             }
         };
+        worker.onerror =
+                function(error)
+                {
+                    var message = error.message ? error.message : String(error);
+                    if (this_obj.status.status === null) {
+                        this_obj.status.status = this_obj.status.ERROR;
+                        this_obj.status.message = "Error in worker: " + message;
+                    }
+                    this_obj.num_pending_remotes--;
+                    if (this_obj.all_done()) {
+                        this_obj.complete();
+                    }
+                };
         port.onmessage =
                 function(message)
                 {
@@ -1559,15 +1578,15 @@ policies and contribution forms [3].
                     }
                 };
         port.postMessage({
-            type: "get_results"
+            type: "fetch_results"
         });
     };
 
-    function join_tests_on_message_port(port)
+    function fetch_tests_from_worker(port)
     {
-        tests.join_tests_on_message_port(port);
+        tests.fetch_tests_from_worker(port);
     }
-    expose(join_tests_on_message_port, 'join_tests_on_message_port');
+    expose(fetch_tests_from_worker, 'fetch_tests_from_worker');
 
     function timeout() {
         if (tests.timeout_length === null) {
