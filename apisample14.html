@@ -3,8 +3,12 @@
 <script src="testharness.js"></script>
 <script src="testharnessreport.js"></script>
 <script>
+test(function(t) {
+  assert_true('Worker' in self, "Browser should support Workers");
+}, "Browser supports Workers");
+
 var worker = new Worker('apisample14-worker.js');
-join_tests_on_message_port(worker);
+fetch_tests_from_worker(worker);
 
 test(function(t) {
   assert_false(false, "False is false");
