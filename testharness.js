@@ -364,13 +364,33 @@ policies and contribution forms [3].
     function ServiceWorkerTestEnvironment()
     {
         WorkerTestEnvironment.call(this);
+        this.all_loaded = false;
+        this.on_loaded_callback = null;
         var this_obj = this;
-        self.addEventListener("message", function(message)
-        {
-            this_obj._add_message_port(message.ports[0]);
-        });
+        on_event(self, "message", function(event)
+                {
+                    if (event.data.type && event.data.type === "fetch_results") {
+                        this_obj._add_message_port(event.ports[0]);
+                    }
+                });
+        on_event(self, "install", function(event)
+                {
+                    this_obj.all_loaded = true;
+                    if (this_obj.on_loaded_callback) {
+                        this_obj.on_loaded_callback();
+                    }
+                });
     }
     ServiceWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
+
+    ServiceWorkerTestEnvironment.prototype.add_on_loaded_callback = function(callback)
+    {
+        if (this.all_loaded) {
+            callback();
+        } else {
+            this.on_loaded_callback = callback;
+        }
+    };
 
     function create_test_environment()
     {
@@ -1583,16 +1603,25 @@ policies and contribution forms [3].
             this_obj.worker_done(this_worker);
         };
 
-        port.onmessage = function(message)
-        {
-            if (message.data.type && message.data.type in handlers) {
-                handlers[message.data.type](message.data);
-            }
-        };
+        var incoming_port = port;
+        var transfer_data = null;
+        if (worker instanceof ServiceWorker) {
+            var message_channel = new MessageChannel();
+            incoming_port = message_channel.port1;
+            transfer_data = [message_channel.port2];
+            message_channel.port1.start();
+        }
 
+        incoming_port.onmessage =
+                function(message)
+                {
+                    if (message.data.type && message.data.type in handlers) {
+                        handlers[message.data.type](message.data);
+                    }
+                };
         port.postMessage({
             type: "fetch_results"
-        });
+        }, transfer_data);
     };
 
     function fetch_tests_from_worker(port)
