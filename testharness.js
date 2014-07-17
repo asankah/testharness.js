@@ -266,7 +266,7 @@ policies and contribution forms [3].
         this.message_list = [];
         this.message_ports = [];
     }
-    
+
     WorkerTestEnvironment.prototype._dispatch = function(message)
     {
         this.message_list.push(message);
@@ -275,7 +275,7 @@ policies and contribution forms [3].
             this.message_ports[i].postMessage(message);
         }
     };
-    
+
     WorkerTestEnvironment.prototype._add_message_port = function(port)
     {
         this.message_ports.push(port);
@@ -342,7 +342,7 @@ policies and contribution forms [3].
         this._add_message_port(self);
     }
     DedicatedWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
-    
+
     /*
      * A shared worker.
      */
@@ -356,7 +356,7 @@ policies and contribution forms [3].
         });
     }
     SharedWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
-    
+
     /*
      * A service worker.
      */
