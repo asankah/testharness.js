@@ -1540,13 +1540,15 @@ policies and contribution forms [3].
 
         var this_obj = this;
         var handlers = {
-            result: function(data) {
+            result: function(data)
+            {
                 var remote_test = new RemoteTest(data.test);
                 this_obj.push(remote_test);
                 this_obj.result(remote_test);
             },
 
-            complete: function(data) {
+            complete: function(data)
+            {
                 if (this_obj.status.status === null) {
                     this_obj.status.status = data.status.status;
                     this_obj.status.message = data.status.message;
@@ -1557,26 +1559,27 @@ policies and contribution forms [3].
                 }
             }
         };
-        worker.onerror =
-                function(error)
-                {
-                    var message = error.message ? error.message : String(error);
-                    if (this_obj.status.status === null) {
-                        this_obj.status.status = this_obj.status.ERROR;
-                        this_obj.status.message = "Error in worker: " + message;
-                    }
-                    this_obj.num_pending_remotes--;
-                    if (this_obj.all_done()) {
-                        this_obj.complete();
-                    }
-                };
-        port.onmessage =
-                function(message)
-                {
-                    if (message.data.type && message.data.type in handlers) {
-                        handlers[message.data.type](message.data);
-                    }
-                };
+
+        worker.onerror = function(error)
+        {
+            var message = error.message ? error.message : String(error);
+            if (this_obj.status.status === null) {
+                this_obj.status.status = this_obj.status.ERROR;
+                this_obj.status.message = "Error in worker: " + message;
+            }
+            this_obj.num_pending_remotes--;
+            if (this_obj.all_done()) {
+                this_obj.complete();
+            }
+        };
+
+        port.onmessage = function(message)
+        {
+            if (message.data.type && message.data.type in handlers) {
+                handlers[message.data.type](message.data);
+            }
+        };
+
         port.postMessage({
             type: "fetch_results"
         });
@@ -1588,14 +1591,16 @@ policies and contribution forms [3].
     }
     expose(fetch_tests_from_worker, 'fetch_tests_from_worker');
 
-    function timeout() {
+    function timeout()
+    {
         if (tests.timeout_length === null) {
             tests.timeout();
         }
     }
     expose(timeout, 'timeout');
 
-    function add_start_callback(callback) {
+    function add_start_callback(callback)
+    {
         tests.start_callbacks.push(callback);
     }
 
