@@ -1320,7 +1320,6 @@ policies and contribution forms [3].
     {
         this.tests = [];
         this.num_pending = 0;
-        this.num_pending_remotes = 0;
 
         this.phases = {
             INITIAL:0,
@@ -1347,6 +1346,9 @@ policies and contribution forms [3].
         this.start_callbacks = [];
         this.test_done_callbacks = [];
         this.all_done_callbacks = [];
+
+        this.pending_workers = [];
+        this.waiting_for_workers = false;
 
         this.status = new TestsStatus();
 
@@ -1450,7 +1452,7 @@ policies and contribution forms [3].
 
     Tests.prototype.all_done = function() {
         return (this.tests.length > 0 && test_environment.all_loaded &&
-                this.num_pending_remotes === 0 && this.num_pending === 0 &&
+                this.num_pending === 0 && !this.waiting_for_workers &&
                 !this.wait_for_finish && !this.processing_callbacks);
     };
 
@@ -1525,6 +1527,19 @@ policies and contribution forms [3].
                  });
     };
 
+    Tests.prototype.worker_done = function(worker_id)
+    {
+        this.pending_workers[worker_id] = false;
+        this.waiting_for_workers = this.pending_workers.some(
+                function(is_running)
+                {
+                    return is_running;
+                });
+        if (this.all_done()) {
+            this.complete();
+        }
+    };
+
     Tests.prototype.fetch_tests_from_worker = function(worker)
     {
         if (this.phase >= this.phases.COMPLETE)
@@ -1536,7 +1551,8 @@ policies and contribution forms [3].
             port = worker.port;
         }
 
-        this.num_pending_remotes++;
+        var this_worker = this.pending_workers.push(true) - 1;
+        this.waiting_for_workers = true;
 
         var this_obj = this;
         var handlers = {
@@ -1553,10 +1569,7 @@ policies and contribution forms [3].
                     this_obj.status.status = data.status.status;
                     this_obj.status.message = data.status.message;
                 }
-                this_obj.num_pending_remotes--;
-                if (this_obj.all_done()) {
-                    this_obj.complete();
-                }
+                this_obj.worker_done(this_worker);
             }
         };
 
@@ -1567,10 +1580,7 @@ policies and contribution forms [3].
                 this_obj.status.status = this_obj.status.ERROR;
                 this_obj.status.message = "Error in worker: " + message;
             }
-            this_obj.num_pending_remotes--;
-            if (this_obj.all_done()) {
-                this_obj.complete();
-            }
+            this_obj.worker_done(this_worker);
         };
 
         port.onmessage = function(message)
