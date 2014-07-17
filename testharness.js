@@ -350,10 +350,11 @@ policies and contribution forms [3].
     {
         WorkerTestEnvironment.call(this);
         var this_obj = this;
-        self.addEventListener("connect", function(message)
-        {
-            this_obj._add_message_port(message.ports[0]);
-        });
+        self.onconnect =
+                function(message)
+                {
+                    this_obj._add_message_port(message.ports[0]);
+                };
     }
     SharedWorkerTestEnvironment.prototype = Object.create(WorkerTestEnvironment.prototype);
 
