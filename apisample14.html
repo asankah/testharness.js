@@ -7,11 +7,14 @@ test(function(t) {
   assert_true('Worker' in self, "Browser should support Workers");
 }, "Browser supports Workers");
 
-fetch_tests_from_worker(new Worker('apisample-worker.js'));
+fetch_tests_from_worker(new Worker("apisample-worker.js"));
+
+fetch_tests_from_worker(new Worker("apisample-error-worker.js"));
 
 test(function(t) {
   assert_false(false, "False is false");
 }, "Test running on main document. " +
-"There should be an additional test named \'Test running on worker\'.");
+"There should be an additional test named \'Test running on worker\'. " +
+"The harness should fail with an error due to an uncaught exception in one worker.");
 </script>
 
