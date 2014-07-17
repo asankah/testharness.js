@@ -1,0 +1,47 @@
+<!DOCTYPE HTML>
+<title>Example with a service worker</title>
+<script src="testharness.js"></script>
+<script src="testharnessreport.js"></script>
+<script>
+test(function(t)
+{
+    assert_true('serviceWorker' in navigator,
+        "navigator.serviceWorker exists");
+}, "Browser supports ServiceWorker");
+
+async_test(function(t)
+{
+    navigator.serviceWorker.unregister("/service-worker-scope").then(t.step_func(
+            function()
+            {
+                return navigator.serviceWorker.register("apisample-worker.js",
+                    {
+                        scope: "/service-worker-scope"
+                    });
+            })).
+    then(t.step_func(
+            function(serviceWorker)
+            {
+                fetch_tests_from_worker(serviceWorker);
+                add_completion_callback(
+                        function()
+                        {
+                            console.log("Running cleanup");
+                            navigator.serviceWorker.unregister("/service-worker-scope");
+                        });
+                t.done();
+            })).
+    catch(t.step_func(
+            function()
+            {
+                assert_notreached("ServiceWorker registration should succeed");
+            }));
+}, "Start/run/unregister ServiceWorker");
+
+test(function(t)
+{
+    assert_false(false, "False is false");
+}, "Test running on main document. " +
+   "There should be an additional test named \'Test running on worker\'.");
+</script>
+
