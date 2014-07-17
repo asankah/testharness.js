@@ -7,8 +7,7 @@ test(function(t) {
   assert_true('Worker' in self, "Browser should support Workers");
 }, "Browser supports Workers");
 
-var worker = new Worker('apisample14-worker.js');
-fetch_tests_from_worker(worker);
+fetch_tests_from_worker(new Worker('apisample-worker.js'));
 
 test(function(t) {
   assert_false(false, "False is false");
