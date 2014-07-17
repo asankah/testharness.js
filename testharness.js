@@ -1540,15 +1540,16 @@ policies and contribution forms [3].
             complete: function(data) {
                 this_obj.status.status = data.status.status;
                 this_obj.status.message = data.status.message;
-                this_obj.done();
+                this_obj.end_wait();
             }
         };
-        port.addEventListener(port, 'message', function(message)
+        port.onmessage =
+                function(message)
                 {
                     if (message.data.type && message.data.type in handlers) {
                         handlers[message.data.type](message.data);
                     }
-                });
+                };
         port.postMessage({
             type: "get_results"
         });
