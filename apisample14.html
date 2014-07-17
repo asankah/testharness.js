@@ -4,7 +4,7 @@
 <script src="testharnessreport.js"></script>
 <script>
 var worker = new Worker('apisample14-worker.js');
-listen_on_MessagePort(worker);
+join_tests_on_message_port(worker);
 
 test(function(t) {
   assert_false(false, "False is false");

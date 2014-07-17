@@ -1319,6 +1319,7 @@ policies and contribution forms [3].
     {
         this.tests = [];
         this.num_pending = 0;
+        this.num_pending_remotes = 0;
 
         this.phases = {
             INITIAL:0,
@@ -1448,7 +1449,8 @@ policies and contribution forms [3].
 
     Tests.prototype.all_done = function() {
         return (this.tests.length > 0 && test_environment.all_loaded &&
-                this.num_pending === 0 && !this.wait_for_finish && !this.processing_callbacks);
+                this.num_pending_remotes === 0 && this.num_pending === 0 &&
+                !this.wait_for_finish && !this.processing_callbacks);
     };
 
     Tests.prototype.start = function() {
@@ -1522,12 +1524,12 @@ policies and contribution forms [3].
                  });
     };
 
-    Tests.prototype.listen_on_MessagePort = function(port)
+    Tests.prototype.join_tests_on_message_port = function(port)
     {
         if (this.phase >= this.phases.HAVE_RESULTS)
             return;
 
-        this.wait_for_finish = true;
+        this.num_pending_remotes++;
 
         var this_obj = this;
         var handlers = {
@@ -1538,9 +1540,14 @@ policies and contribution forms [3].
             },
 
             complete: function(data) {
-                this_obj.status.status = data.status.status;
-                this_obj.status.message = data.status.message;
-                this_obj.end_wait();
+                if (this_obj.status.status === null) {
+                    this_obj.status.status = data.status.status;
+                    this_obj.status.message = data.status.message;
+                }
+                this_obj.num_pending_remotes--;
+                if (this_obj.all_done()) {
+                    this_obj.complete();
+                }
             }
         };
         port.onmessage =
@@ -1555,11 +1562,11 @@ policies and contribution forms [3].
         });
     };
 
-    function listen_on_MessagePort(port)
+    function join_tests_on_message_port(port)
     {
-        tests.listen_on_MessagePort(port);
+        tests.join_tests_on_message_port(port);
     }
-    expose(listen_on_MessagePort, 'listen_on_MessagePort');
+    expose(join_tests_on_message_port, 'join_tests_on_message_port');
 
     function timeout() {
         if (tests.timeout_length === null) {
